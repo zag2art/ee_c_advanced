@@ -98,7 +98,7 @@ void refreshFood(struct food f[], int nfood) {
     }
 }
 
-void checkIfWeEatFood(struct snake_t *head, struct food f[], int nfood) {
+void haveEat(struct snake_t *head, struct food f[], int nfood) {
     for(size_t i=0; i < nfood; i++) {
         if( f[i].enable && f[i].x == head->x && f[i].y == head->y ) {
             f[i].enable = 0;
@@ -166,7 +166,7 @@ bool checkLock(struct snake_t *head) {
 
 void update(struct snake_t *head, struct food f[]) {
     // проверяем не съели ли мы еду
-    checkIfWeEatFood(head , food, SEED_NUMBER);
+    haveEat(head , food, SEED_NUMBER);
 
     // обновляем еду если надо
     refreshFood(food, SEED_NUMBER);

@@ -14,7 +14,8 @@ enum {
     MAX_TAIL_SIZE=100,
     START_TAIL_SIZE=3,
     MAX_FOOD_SIZE=20,
-    FOOD_EXPIRE_SECONDS=10
+    FOOD_EXPIRE_SECONDS=10,
+    SEED_NUMBER=3
 };
 
 
@@ -54,6 +55,60 @@ typedef struct tail_t
 
 bool end_game = false;
 
+struct food
+{
+    int x;
+    int y;
+    time_t put_time;
+    char point;
+    uint8_t enable;
+} food [MAX_FOOD_SIZE];
+
+void initFood(struct food f[], size_t size)
+{
+    struct food init = {0,0,0,0,0};
+    for(size_t i=0; i<size; i++)
+    {
+        f[i] = init;
+    }
+}
+
+void putFoodSeed(struct food *fp) {
+    int max_x=0, max_y=0;
+    getmaxyx(stdscr, max_y, max_x);
+    fp->x = rand() % (max_x - 1);
+    fp->y = rand() % (max_y - 2) + 1;
+    fp->put_time = time(NULL);
+    fp->point = '$';
+    fp->enable = 1;
+}
+
+void putFood(struct food f[], size_t number_seeds) {
+    for(size_t i=0; i < number_seeds; i++) {
+        putFoodSeed(&f[i]);
+    }
+}
+
+void refreshFood(struct food f[], int nfood) {
+    for(size_t i=0; i < nfood; i++) {
+        if( f[i].put_time ) {
+            if( !f[i].enable || (time(NULL) - f[i].put_time) > FOOD_EXPIRE_SECONDS ) {
+                putFoodSeed(&f[i]);
+            }
+        }
+    }
+}
+
+void haveEat(struct snake_t *head, struct food f[], int nfood) {
+    for(size_t i=0; i < nfood; i++) {
+        if( f[i].enable && f[i].x == head->x && f[i].y == head->y ) {
+            f[i].enable = 0;
+            head->tsize++;
+        }
+    }
+}
+
+
 void initTail(struct tail_t t[], size_t size)
 {
     struct tail_t init_t={0,0};
@@ -78,16 +133,36 @@ void initSnake(snake_t *head, size_t size, int x, int y) {
     head->controls = default_controls;
 }
 
-void render(struct snake_t* head) {
+void render(struct snake_t* head, struct food f[]) {
     erase();
     mvprintw(0, 0, "Use arrows for control. Press 'F10' for EXIT");
+
+    for(size_t i=0; i < SEED_NUMBER; i++)
+    {
+        struct food fp = food[i];
+        if (fp.enable) {
+            mvprintw(fp.y, fp.x, "%c", fp.point);
+        }
+    }
+
     for(size_t i = 0; i < head->tsize; i++) {
         if( head->tail[i].y || head->tail[i].x) {
             mvprintw(head->tail[i].y, head->tail[i].x, "%c", '*');
         }
     }
     mvprintw(head->y, head->x, "%c", '@');
+
     refresh();
+}
+
+bool checkLock(struct snake_t *head) {
+    for(size_t i = 0; i < head->tsize; i++) {
+        if (head->tail[i].x == head->x && head->tail[i].y == head->y) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void changeDirection(struct snake_t* snake, const int32_t key)
@@ -103,18 +178,14 @@ void changeDirection(struct snake_t* snake, const int32_t key)
 }
 
 
-bool checkLock(struct snake_t *head) {
-    for(size_t i = 0; i < head->tsize; i++) {
-        if (head->tail[i].x == head->x && head->tail[i].y == head->y) {
-            return false;
-        }
-    }
+void update(struct snake_t *head, struct food f[]) {
+    // проверяем не съели ли мы еду
+    haveEat(head , food, SEED_NUMBER);
 
-    return true;
-}
+    // обновляем еду если надо
+    refreshFood(food, SEED_NUMBER);
 
-
-void update(struct snake_t *head) {
+    // проверяем, что сами на себя наехали
     bool ok = checkLock(head);
     if (!ok) {
         end_game = true;
@@ -123,23 +194,28 @@ void update(struct snake_t *head) {
     int max_x, max_y;
     getmaxyx(stdscr, max_y, max_x);
 
+    // запиминаем положение головы
     int old_x = head->x;
     int old_y = head->y;
 
+    // ходим головой вперед
     if (head->direction == LEFT) head->x--;
     if (head->direction == RIGHT) head->x++;
     if (head->direction == UP) head->y--;
     if (head->direction == DOWN) head->y++;
 
+    // корректируем, если голова вышла за границы
     if(head->x < 0) head->x = max_x - 1;
     if(head->y < 0) head->y = max_y - 1;
     if(head->x >= max_x) head->x = 0;
     if(head->y >= max_y) head->y = 0;
 
+    // подтягиваем хвост
     for(size_t i = head->tsize - 1; i > 0; i--) {
         head->tail[i] = head->tail[i-1];
     }
 
+    // первое звено хвоста должно быть там, где только что была голова
     head->tail[0].x = old_x;
     head->tail[0].y = old_y;
 }
@@ -169,12 +245,15 @@ int main() {
     timeout(0);
     curs_set(FALSE);    //Отключаем курсор
 
+    initFood(food, MAX_FOOD_SIZE);
+    putFood(food, SEED_NUMBER);// Кладем зерна
+
     // Переделал согласно паттернов гейм дева
     // https://martalex.gitbooks.io/gameprogrammingpatterns/content/chapter-3/3.2-game-loop.html
     while(!end_game) {
         processInput(snake);
-        update(snake);
-        render(snake);
+        update(snake, food);
+        render(snake, food);
         my_timeout(150);
     }
 
