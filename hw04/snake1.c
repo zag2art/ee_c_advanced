@@ -54,58 +54,6 @@ typedef struct tail_t
 
 int end_game = 0;
 
-struct food
-{
-    int x;
-    int y;
-    time_t put_time;
-    char point;
-    uint8_t enable;
-} food [MAX_FOOD_SIZE];
-
-void initFood(struct food f[], size_t size)
-{
-    struct food init = {0,0,0,0,0};
-    for(size_t i=0; i<size; i++)
-    {
-        f[i] = init;
-    }
-}
-
-void putFoodSeed(struct food *fp) {
-    int max_x=0, max_y=0;
-    getmaxyx(stdscr, max_y, max_x);
-    fp->x = rand() % (max_x - 1);
-    fp->y = rand() % (max_y - 2) + 1;
-    fp->put_time = time(NULL);
-    fp->point = '$';
-    fp->enable = 1;
-}
-
-void putFood(struct food f[], size_t number_seeds) {
-    for(size_t i=0; i < number_seeds; i++) {
-        putFoodSeed(&f[i]);
-    }
-}
-
-void refreshFood(struct food f[], int nfood) {
-    for(size_t i=0; i < nfood; i++) {
-        if( f[i].put_time ) {
-            if( !f[i].enable || (time(NULL) - f[i].put_time) > FOOD_EXPIRE_SECONDS ) {
-                putFoodSeed(&f[i]);
-            }
-        }
-    }
-}
-
-void haveEat(struct snake_t *head, struct food f[], int nfood) {
-    for(size_t i=0; i < nfood; i++) {
-        if( f[i].enable && f[i].x == head->x && f[i].y == head->y ) {
-            f[i].enable = 0;
-            head->tsize++;
-        }
-    }
-}
 
 void initTail(struct tail_t t[], size_t size)
 {
@@ -132,17 +80,9 @@ void initSnake(snake_t *head, size_t size, int x, int y) {
     head->controls = default_controls;
 }
 
-void render(struct snake_t* head, struct food f[]) {
+void render(struct snake_t* head) {
     erase();
     mvprintw(0, 0, "Use arrows for control. Press 'F10' for EXIT");
-
-    for(size_t i=0; i < SEED_NUMBER; i++)
-    {
-        struct food fp = food[i];
-        if (fp.enable) {
-            mvprintw(fp.y, fp.x, "%c", fp.point);
-        }
-    }
 
     for(size_t i = 0; i < head->tsize; i++) {
         if( head->tail[i].y || head->tail[i].x) {
@@ -164,13 +104,7 @@ bool checkLock(struct snake_t *head) {
     return true;
 }
 
-void update(struct snake_t *head, struct food f[]) {
-    // проверяем не съели ли мы еду
-    haveEat(head , food, SEED_NUMBER);
-
-    // обновляем еду если надо
-    refreshFood(food, SEED_NUMBER);
-
+void update(struct snake_t *head) {
     // проверяем, что сами на себя наехали
     bool ok = checkLock(head);
     if (!ok) {
@@ -260,15 +194,12 @@ int main() {
     timeout(0);
     curs_set(FALSE);    //Отключаем курсор
 
-    initFood(food, MAX_FOOD_SIZE);
-    putFood(food, SEED_NUMBER);// Кладем зерна
-
     // Переделал согласно паттернов гейм дева
     // https://martalex.gitbooks.io/gameprogrammingpatterns/content/chapter-3/3.2-game-loop.html
     while(!end_game) {
         processInput(snake);
-        update(snake, food);
-        render(snake, food);
+        update(snake);
+        render(snake);
         my_timeout(150);
     }
 
