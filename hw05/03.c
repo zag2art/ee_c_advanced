@@ -44,7 +44,7 @@ void push(int value) {
         stack[++top] = value;
     } else {
         printf("Stack overflow\n");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 }
 
@@ -53,20 +53,22 @@ int pop() {
         return stack[top--];
     } else {
         printf("Stack underflow\n");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 }
 
 int main() {
-    char input[1001];
+    char s[1001];
     int num;
     char *ptr;
 
-    fgets(input, sizeof(input), stdin);
+    fgets(s, sizeof(s), stdin);
 
-    ptr = input;
+    ptr = s;
     while (*ptr != '.') {
         if (isdigit(*ptr)) {
+            // классная функция, читает все число
+            // даже многозначное
             num = strtol(ptr, &ptr, 10);
             push(num);
         } else if (*ptr == ' ') {
@@ -91,7 +93,7 @@ int main() {
                     break;
                 default:
                     printf("Unknown operator: %c\n", *ptr);
-                    exit(EXIT_FAILURE);
+                    exit(1);
             }
 
             push(result);
