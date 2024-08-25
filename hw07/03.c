@@ -61,9 +61,7 @@ void tree_add(tree **root, int num) {
 }
 
 tree *findBrother(tree *root, int key) {
-    if (root == NULL) {
-        return NULL;
-    }
+    if (root == NULL) return NULL;
 
     if (key < root->key) {
         return findBrother(root->left, key);
